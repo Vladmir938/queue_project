@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Электронная очередь{% endblock %}
+
+{% block content %}
+    {% if is_teacher %}
+        <h2>Фильтры для преподавателей</h2>
+        <form method="get" class="row g-3 mb-4" id="filter-form">
+            <div class="col-md-4">
+                <label for="group" class="form-label">Группа</label>
+                <select id="group" name="group" class="form-select">
+                    <option value="">Выберите группу</option>
+                    {% for group in groups %}
+                        <option value="{{ group.id }}" {% if group.id == selected_group_id %}selected{% endif %}>
+                            {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label for="student" class="form-label">Студент</label>
+                <select id="student" name="student" class="form-select">
+                    <option value="">Выберите студента</option>
+                    {% for student in students %}
+                        <option value="{{ student.id }}" {% if student.id == selected_student_id %}selected{% endif %}>
+                            {{ student.last_name }} {{ student.first_name }} {{ student.patronymic }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+
+            <div class="col-md-4">
+                <label for="subject" class="form-label">Предмет</label>
+                <select id="subject" name="subject" class="form-select">
+                    <option value="">Выберите предмет</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if subject.id == selected_subject_id %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <div class="col-md-4">
+                <label for="task" class="form-label">Лабораторная</label>
+                <select id="task" name="task" class="form-select">
+                    <option value="">Выберите лабораторную</option>
+                    {% for task in tasks %}
+                        <option value="{{ task.id }}" {% if task.id == selected_task_id %}selected{% endif %}>
+                            {{ task.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Применить фильтры</button>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100">Сбросить</a>
+            </div>
+        </form>
+    {% elif is_student %}
+        <h2>Фильтры для студентов</h2>
+        <form method="get" class="row g-3 mb-4" id="filter-form-student">
+            <div class="col-md-4">
+                <label for="teacher" class="form-label">Преподаватель</label>
+                <select id="teacher" name="teacher" class="form-select" onchange="updateSubjects()">
+                    <option value="">Выберите преподавателя</option>
+                    {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}" {% if teacher.id == selected_teacher_id %}selected{% endif %}>
+                            {{ teacher.last_name }} {{ teacher.first_name }} {{ teacher.patronymic }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label for="subject" class="form-label">Предмет</label>
+                <select id="subject" name="subject" class="form-select" onchange="updateTasks()">
+                    <option value="">Выберите предмет</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if subject.id == selected_subject_id %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label for="task" class="form-label">Лабораторная</label>
+                <select id="task" name="task" class="form-select">
+                    <option value="">Выберите лабораторную</option>
+                    {% for task in tasks %}
+                        <option value="{{ task.id }}" {% if task.id == selected_task_id %}selected{% endif %}>
+                            {{ task.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Применить фильтры</button>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100">Сбросить</a>
+            </div>
+        </form>
+    {% endif %}
+
+    <div id="queue-table">
+        {% include 'queue_table.html' %}
+    </div>
+
+    <script>
+        document.getElementById('filter-form-student').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const params = new URLSearchParams(formData).toString();
+
+            fetch("{% url 'dashboard' %}?" + params, {
+                method: "GET",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error("Ошибка сервера");
+                    return response.text();
+                })
+                .then(html => {
+                    document.getElementById("queue-table").innerHTML = html;
+                })
+                .catch(error => {
+                    console.error("Ошибка:", error);
+                });
+        });
+
+
+        function updateSubjects() {
+            var teacherId = document.getElementById("teacher").value;
+            var subjectSelect = document.getElementById("subject");
+
+            subjectSelect.innerHTML = "<option value=''>Выберите предмет</option>";
+            document.getElementById("task").innerHTML = "<option value=''>Выберите лабораторную</option>";
+
+            if (teacherId) {
+                fetch("{% url 'get_subjects_for_teacher' %}?teacher_id=" + teacherId)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.subjects.forEach(subject => {
+                            var option = document.createElement("option");
+                            option.value = subject.id;
+                            option.textContent = subject.name;
+                            subjectSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка:", error));
+            }
+        }
+
+        function updateTasks() {
+            var subjectId = document.getElementById("subject").value;
+            var taskSelect = document.getElementById("task");
+
+            taskSelect.innerHTML = "<option value=''>Выберите лабораторную</option>";
+
+            if (subjectId) {
+                fetch("{% url 'get_tasks_for_subject' %}?subject_id=" + subjectId)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.tasks.forEach(task => {
+                            var option = document.createElement("option");
+                            option.value = task.id;
+                            option.textContent = task.name;
+                            taskSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка:", error));
+            }
+        }
+
+        function updateStudents() {
+            var groupId = document.getElementById("group").value;
+            var studentSelect = document.getElementById("student");
+
+            studentSelect.innerHTML = "<option value=''>Выберите студента</option>";
+
+            if (groupId) {
+                fetch("{% url 'get_students_for_group' %}?group_id=" + groupId)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.students.forEach(student => {
+                            var option = document.createElement("option");
+                            option.value = student.id;
+                            option.textContent = `${student.last_name} ${student.first_name} ${student.patronymic}`;
+                            studentSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка:", error));
+            }
+        }
+
+        document.getElementById("group").addEventListener("change", function() {
+            var groupId = this.value;
+            var studentSelect = document.getElementById("student");
+
+            studentSelect.innerHTML = "<option value=''>Выберите студента</option>";
+
+            if (groupId) {
+                fetch(`/get_students_for_group/?group_id=${groupId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.students.forEach(student => {
+                            var option = document.createElement("option");
+                            option.value = student.id;
+                            option.textContent = `${student.last_name} ${student.first_name} ${student.patronymic}`;
+                            studentSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка загрузки студентов:", error));
+            }
+        });
+
+
+    </script>
+
+
+{% endblock %}

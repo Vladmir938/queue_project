@@ -1,0 +1,23 @@
+<h3>Очередь</h3>
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col">ФИО</th>
+                <th scope="col">Предмет</th>
+                <th scope="col">Задание</th>
+                <th scope="col">Позиция</th>
+            </tr>
+        </thead>
+        <tbody id="queue-table">
+            {% for queue in queue %}
+                <tr>
+                    <td>{{ queue.student.last_name }} {{ queue.student.first_name }} {{ queue.student.patronymic }}</td>
+                    <td>{{ queue.subject.name }}</td>
+                    <td>{{ queue.task.name }}</td>
+                    <td>{{ queue.position }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

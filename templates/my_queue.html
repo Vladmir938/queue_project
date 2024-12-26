@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}Моя очередь{% endblock %}
+
+{% block content %}
+    <h2 class="text-center mb-4">Моя очередь</h2>
+
+    <div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+        <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addToQueueModal">
+            Встать в очередь
+        </button>
+    </div>
+
+    {% if queue_positions %}
+        <div class="d-flex flex-wrap justify-content-center">
+            {% for position in queue_positions %}
+                <div class="card mx-2 my-3 shadow" style="width: 18rem; border-radius: 15px; background: #ffffff; position: relative;">
+                    <div class="card-body">
+                        <!-- Название предмета в левом верхнем углу -->
+                        <h6 class="text-black" style="position: absolute; top: 10px; left: 15px; font-weight: bold;">
+                            {{ position.subject.name }}
+                        </h6>
+                        <!-- Позиция в кружке и предмет в одной строке -->
+                        <div class="d-flex align-items-center mt-4">
+                            <div style="width: 50px; height: 50px; border-radius: 50%; background: #e9f2fe; color: #000000; font-weight: bold; font-size: 18px; line-height: 50px; text-align: center;">
+                                {{ position.position_in_group }}
+                            </div>
+                            <h5 class="ms-3 mb-0">{{ position.task.name }}</h5>
+                        </div>
+                        <!-- Кнопка для просмотра файла -->
+                        <div class="text-center">
+                            <button class="btn btn-outline-primary btn-sm">Посмотреть файл</button>
+                        </div>
+                    </div>
+                    <!-- Кнопки в нижней части карточки -->
+                    <div class="card-footer d-flex justify-content-between">
+                        <form method="post" action="{% url 'leave_queue' position.id %}" onsubmit="return confirm('Вы уверены, что хотите выйти из очереди?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Выйти</button>
+                        </form>
+                        <button type="button" class="btn btn-secondary btn-sm">Изменить файл</button>
+                    </div>
+                </div>
+
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-center">Вы пока не занимали очередь.</p>
+    {% endif %}
+
+    <!-- Модальное окно для постановки в очередь -->
+    <div class="modal fade" id="addToQueueModal" tabindex="-1" aria-labelledby="addToQueueModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addToQueueModalLabel">Встать в очередь</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'join_queue' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="teacher" class="form-label">Преподаватель</label>
+                            <select id="teacher" name="teacher" class="form-select" onchange="updateSubjects()">
+                                <option value="">Выберите преподавателя</option>
+                                {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}">{{ teacher.last_name }} {{ teacher.first_name }} {{ teacher.patronymic }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Предмет</label>
+                            <select id="subject" name="subject" class="form-select" onchange="updateTasks()">
+                                <option value="">Выберите предмет</option>
+                                {% if subjects %}
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}" {% if subject.id == selected_subject_id %}selected{% endif %}>
+                                            {{ subject.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="task" class="form-label">Лабораторная</label>
+                            <select id="task" name="task" class="form-select">
+                                <option value="">Выберите лабораторную</option>
+                                {% if tasks %}
+                                    {% for task in tasks %}
+                                        <option value="{{ task.id }}" {% if task.id == selected_task_id %}selected{% endif %}>
+                                            {{ task.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Файл задания</label>
+                            <input type="file" id="file" name="file" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Встать в очередь</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateSubjects() {
+            var teacherId = document.getElementById("teacher").value;
+            var subjectSelect = document.getElementById("subject");
+
+            subjectSelect.innerHTML = "<option value=''>Выберите предмет</option>";
+            document.getElementById("task").innerHTML = "<option value=''>Выберите лабораторную</option>";
+
+            if (teacherId) {
+                fetch("{% url 'get_subjects_for_teacher' %}?teacher_id=" + teacherId)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.subjects.forEach(subject => {
+                            var option = document.createElement("option");
+                            option.value = subject.id;
+                            option.textContent = subject.name;
+                            subjectSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка:", error));
+            }
+        }
+
+        function updateTasks() {
+            var subjectId = document.getElementById("subject").value;
+            var taskSelect = document.getElementById("task");
+
+            taskSelect.innerHTML = "<option value=''>Выберите лабораторную</option>";
+
+            if (subjectId) {
+                fetch("{% url 'get_tasks_for_subject' %}?subject_id=" + subjectId)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.tasks.forEach(task => {
+                            var option = document.createElement("option");
+                            option.value = task.id;
+                            option.textContent = task.name;
+                            taskSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error("Ошибка:", error));
+            }
+        }
+    </script>
+{% endblock %}
